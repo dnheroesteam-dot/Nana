@@ -1,0 +1,117 @@
+/* styles.css */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+    font-family:'Noto Sans SC',sans-serif;
+    min-height:100vh;
+    position:relative;
+    color:#e8f5ff;
+    background:#0a1128 url('bg.jpg') center/cover no-repeat fixed;
+}
+body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:rgba(8,12,45,0.76);   /* 透明度調整這裡，越小越清楚 */
+    z-index:-1;
+}
+
+.container{max-width:960px;margin:0 auto;padding:20px 15px;}
+header{text-align:center;padding:30px 0;}
+h1{
+    font-size:3.4em;
+    background:linear-gradient(90deg,#a0f1ff,#ffbefb,#c3fffc);
+    -webkit-background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(150,200,255,0.6);
+    user-select:none;cursor:pointer;
+}
+.subtitle{margin-top:12px;opacity:0.9;font-size:1.05em;}
+.search{position:sticky;top:0;z-index:10;padding:20px 0;background:rgba(10,20,50,0.85);backdrop-filter:blur(12px);margin-bottom:20px;}
+#searchInput{width:100%;padding:15px 20px;border:none;border-radius:50px;background:rgba(255,255,255,0.15);color:#fff;font-size:1.1em;outline:none;backdrop-filter:blur(10px);}
+#searchInput::placeholder{color:rgba(255,255,255,0.6);}
+
+.category{margin-bottom:20px;border-radius:16px;overflow:hidden;background:rgba(255,255,255,0.08);backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.3);}
+.cat-header{
+    padding:16px 20px;
+    background:rgba(100,180,255,0.25);
+    cursor:pointer;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-weight:600;
+    font-size:1.25em;
+    transition:background 0.3s;
+}
+.cat-header:hover{background:rgba(100,180,255,0.4);}
+.cat-header::after{content:'▸';margin-left:8px;transition:transform 0.4s ease;}
+.cat-header.open::after{content:'▾';}
+.cat-count{font-size:0.9em;opacity:0.9;margin-left:10px;font-weight:normal;}
+
+/* 絲滑收合動畫 */
+.cat-body{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height 0.45s cubic-bezier(0.22,1,0.36,1);
+}
+.cat-body.open{
+    max-height:5000px;
+}
+
+.song-item{
+    padding:14px 20px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    transition:0.3s;
+}
+.song-item:hover{background:rgba(255,255,255,0.1);}
+.song-item:last-child{border-bottom:none;}
+.song-info{flex:1;}
+.title{font-size:1.18em;font-weight:500;}
+.artist{font-size:0.95em;opacity:0.85;margin-top:4px;}
+.copy{padding:6px 14px;background:rgba(100,200,255,0.3);border:none;border-radius:8px;cursor:pointer;font-size:0.9em;}
+.copy:hover{background:rgba(100,200,255,0.6);}
+.highlight{background:rgba(120,220,255,0.35)!important;border-left:4px solid #a0f1ff;}
+.footer{text-align:center;padding:40px 0 20px;opacity:0.75;font-size:0.95em;}
+.snow{position:fixed;inset:0;pointer-events:none;z-index:1;}
+
+/* 小桌宠娜娜 - 右下角漂浮搖動 */
+
+#nana-pet {
+    position: fixed;
+    right: 20px;           /* 可微調左右 */
+    bottom: -18px;         /* 關鍵！負數讓她沉下去一點（根據圖片調整 -10 ~ -30px 都好看） */
+    z-index: 999;
+    pointer-events: none;  /* 不擋滑鼠 */
+    animation: float 6s ease-in-out infinite;
+    transform-origin: bottom right;
+}
+
+#nana-pet img {
+    width: 400px;          /* 你可以再調大一點，沉下去後看起來更可愛 */
+    height: auto;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+    animation: sway 4s ease-in-out infinite,
+               blink 10s infinite;
+}
+
+/* 上下輕飄 */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+}
+
+/* 左右搖頭晃腦 */
+@keyframes sway {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(4deg); }
+    75% { transform: rotate(-4deg); }
+}
+
+/* 偶爾眨眼（可選） */
+@keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    94%, 96% { transform: scaleY(0.05); }
+}

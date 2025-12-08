@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星野娜娜♪歌单（按字数分类）</title>
+    
+    <!-- 連結外部 CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- 可選：加上你的 favicon -->
+    <link rel="icon" href="favicon.png" type="image/png">
+</head>
+<body>
+    <div class="snow" id="snow"></div>
+	<div id="nana-pet">
+		<img src="Nana.png" alt="星野娜娜桌宠">
+	</div>
+    <div class="container">
+        <header>
+            <h1>星野娜娜的歌单</h1>
+            <p class="subtitle">加载中…</p>
+        </header>
+        <div class="search"><input type="text" id="searchInput" placeholder="搜索歌名或歌手…"></div>
+        <div id="categories"></div>
+        <div class="footer">
+            © 2025 星野娜娜 私人歌单<br>
+            想听哪首点一下「复制」→直播间直接粘贴发送就行哦～
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'nanasing_progress_2025';
+        let progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        let allSongs = [];
+
+        fetch('songs.json')
+            .then(r => { if (!r.ok) throw new Error('找不到 songs.json'); return r.json(); })
+            .then(songs => {
+                allSongs = songs;
+                renderAll();
+                const sub = document.querySelector('.subtitle');
+                sub.textContent = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
+                sub.dataset.original = sub.textContent;
+                updateCounter();
+            })
+            .catch(err => {
+                document.body.innerHTML += `<h2 style="color:#ff6b6b;text-align:center;margin:60px;">載入失敗：${err.message}</h2>`;
+            });
+
+        function groupByLength(s) { const g={}; s.forEach(i=>{const l=i.title.length; g[l]=g[l]||[]; g[l].push(i);}); return g; }
+
+        function renderAll() {
+            const container = document.getElementById('categories');
+            container.innerHTML = '';
+            const groups = groupByLength(allSongs);
+            const maxLen = Math.max(...Object.keys(groups).map(Number),1);
+
+            for (let len=1; len<=maxLen; len++) {
+                if (!groups[len]) continue;
+
+                const cat = document.createElement('div'); cat.className='category';
+                const header = document.createElement('div'); header.className='cat-header';
+                header.innerHTML = `<span>${len}字歌</span><span class="cat-count">(${groups[len].length})</span>`;
+
+                const body = document.createElement('div'); body.className='cat-body';
+
+                groups[len].forEach(song => {
+                    const item = document.createElement('div'); item.className='song-item';
+                    item.dataset.title = song.title;
+                    if (progress[song.title]) item.style.background='rgba(100,255,180,0.15)';
+
+                    item.innerHTML = `
+                        <div class="song-info">
+                            <div class="title">${song.title}</div>
+                            ${song.artist ? `<div class="artist">${song.artist}</div>` : ''}
+                        </div>
+                        <button class="copy">复制</button>
+                    `;
+
+                    const checkDiv = document.createElement('div');
+                    checkDiv.style.cssText='display:flex;flex-direction:column;align-items:center;min-width:90px;';
+                    const cb = document.createElement('input'); cb.type='checkbox';
+                    cb.style.transform='scale(1.4)'; cb.checked=!!progress[song.title];
+                    const date = document.createElement('small');
+                    date.style.cssText='margin-top:4px;font-size:0.75em;opacity:0.8;';
+                    if (progress[song.title]) date.textContent=progress[song.title].slice(5,10).replace('-','/');
+
+                    cb.addEventListener('change',()=>{
+                        if(cb.checked){
+                            const t=new Date().toISOString().slice(0,10);
+                            progress[song.title]=t;
+                            date.textContent=t.slice(5,10).replace('-','/');
+                            item.style.background='rgba(100,255,180,0.15)';
+                        }else{
+                            delete progress[song.title];
+                            date.textContent=''; item.style.background='';
+                        }
+                        localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));
+                        updateCounter();
+                    });
+
+                    checkDiv.appendChild(cb); checkDiv.appendChild(date);
+                    item.appendChild(checkDiv);
+
+                    item.querySelector('.copy').onclick=()=>{
+                        const txt=song.artist?`${song.title} - ${song.artist}`:song.title;
+                        navigator.clipboard.writeText(txt);
+                        item.querySelector('.copy').textContent='✓';
+                        setTimeout(()=>{item.querySelector('.copy').textContent='复制';},1500);
+                    };
+
+                    body.appendChild(item);
+                });
+
+                header.onclick=()=>{ header.classList.toggle('open'); body.classList.toggle('open'); };
+                cat.appendChild(header); cat.appendChild(body); container.appendChild(cat);
+            }
+        }
+
+        function updateCounter(){
+            const total=allSongs.length, done=Object.keys(progress).length;
+            const pct=total===0?0:Math.round(done/total*100);
+            const sub=document.querySelector('.subtitle');
+            if(!sub.dataset.original) sub.dataset.original='共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
+            sub.innerText=sub.dataset.original.replace('共0首',`共${total}首`)+`  |  已點：${done}/${total}（${pct}%）`+(done===total&&total>0?' 全部點完啦！':' 加油～');
+        }
+
+        document.getElementById('searchInput').oninput=function(){
+            const kw=this.value.trim().toLowerCase();
+            document.querySelectorAll('.song-item').forEach(it=>{
+                const t=it.dataset.title.toLowerCase();
+                const a=(it.querySelector('.artist')?.innerText||'').toLowerCase();
+                if(t.includes(kw)||a.includes(kw)){
+                    it.classList.add('highlight'); it.style.display='';
+                    it.closest('.cat-body').classList.add('open');
+                    it.closest('.cat-body').previousElementSibling.classList.add('open');
+                }else{
+                    it.classList.remove('highlight');
+                    it.style.display=kw===''?'':'none';
+                }
+            });
+        };
+
+        const h1=document.querySelector('h1');
+        let t; h1.onmousedown=e=>{if(e.button===0)t=setTimeout(()=>{if(confirm('清空所有進度？')){localStorage.removeItem(STORAGE_KEY);location.reload();}},3000);};
+        h1.onmouseup=h1.onmouseleave=()=>{clearTimeout(t);};
+
+        const snow=document.getElementById('snow');
+        setInterval(()=>{
+            const s=document.createElement('div');
+            s.innerText=['❅','❆','✻'][Math.random()*3|0];
+            s.style.cssText=`position:absolute;left:${Math.random()*100}vw;top:-20px;font-size:${Math.random()*16+10}px;opacity:${Math.random()*0.6+0.4};animation:fall ${Math.random()*10+10}s linear forwards;`;
+            snow.appendChild(s);
+            setTimeout(()=>s.remove(),20000);
+        },350);
+        const style=document.createElement('style');
+        style.innerHTML=`@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
