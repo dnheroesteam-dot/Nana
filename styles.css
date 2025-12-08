@@ -77,36 +77,58 @@ h1{
 .footer{text-align:center;padding:40px 0 20px;opacity:0.75;font-size:0.95em;}
 .snow{position:fixed;inset:0;pointer-events:none;z-index:1;}
 
-/* 小桌宠娜娜 - 右下角漂浮搖動 */
-
+/* ─────── 小桌宠娜娜 - 完全響應式（電腦＋手機都完美） ─────── */
 #nana-pet {
     position: fixed;
-    right: 20px;           /* 可微調左右 */
-    bottom: -25px;         /* 關鍵！負數讓她沉下去一點（根據圖片調整 -10 ~ -30px 都好看） */
+    right: 10px;           /* 手機靠邊一點 */
+    bottom: -20px;         /* 沉下去一點（可根據你的 Nana.png 微調 -15 ~ -35px） */
     z-index: 999;
-    pointer-events: none;  /* 不擋滑鼠 */
+    pointer-events: none;  /* 永遠不擋觸控 */
     animation: float 6s ease-in-out infinite;
     transform-origin: bottom right;
 }
 
+/* 圖片大小響應式 */
 #nana-pet img {
-    width: 400px;          /* 你可以再調大一點，沉下去後看起來更可愛 */
+    /* 電腦大螢幕最大 180px，手機自動縮小 */
+    width: 180px;          
     height: auto;
+    max-width: 42vw;       /* 手機螢幕最寬不超過 42%（非常安全） */
     filter: drop-shadow(0 8px 20px rgba(0,0,0,0.5));
     animation: sway 4s ease-in-out infinite,
-               blink 10s infinite;
+               blink 12s infinite;
 }
 
-/* 上下輕飄 */
+/* 小螢幕時再縮小一點（給超小手機） */
+@media (max-width: 480px) {
+    #nana-pet {
+        right: 8px;
+        bottom: -15px;
+    }
+    #nana-pet img {
+        width: 140px;
+        max-width: 38vw;
+    }
+}
+
+/* 超大螢幕可以再大一點（可選） */
+@media (min-width: 1200px) {
+    #nana-pet img {
+        width: 200px;
+    }
+}
+
+/* 動畫保持不變 */
 @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-12px); }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
 }
-
-/* 左右搖頭晃腦 */
 @keyframes sway {
     0%, 100% { transform: rotate(0deg); }
     25% { transform: rotate(4deg); }
     75% { transform: rotate(-4deg); }
 }
-
+@keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    94%, 96% { transform: scaleY(0.05); }
+}
