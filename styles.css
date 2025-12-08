@@ -54,12 +54,46 @@ h1{
 .footer{text-align:center;padding:40px 0 20px;opacity:0.75;font-size:0.95em;}
 .snow{position:fixed;inset:0;pointer-events:none;z-index:1;}
 
-/* 響應式桌宠娜娜 */
-#nana-pet{position:fixed;right:10px;bottom:-22px;z-index:999;pointer-events:none;animation:float 6s ease-in-out infinite;transform-origin:bottom right;}
-#nana-pet img{width:180px;height:auto;max-width:42vw;filter:drop-shadow(0 8px 20px rgba(0,0,0,0.5));animation:sway 4s ease-in-out infinite,blink 12s infinite;}
-@media(max-width:480px){#nana-pet{right:8px;bottom:-15px;}#nana-pet img{width:140px;max-width:38vw;}}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
-@keyframes sway{0%,100%{transform:rotate(0deg)}25%{transform:rotate(4deg)}75%{transform:rotate(-4deg)}}
+/* 響應式桌宠娜娜（仅浮动无旋转） */
+#nana-pet{
+  position:fixed;
+  right:10px;
+  bottom:-22px;
+  z-index:999;
+  pointer-events:none;
+  animation:float 6s ease-in-out infinite;
+  /* 移除旋转原点（因为不再旋转，该属性无意义） */
+  /* transform-origin:bottom right; */
+}
+#nana-pet img{
+  width:300px;
+  height:auto;
+  max-width:42vw;
+  filter:drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+  /* 删掉 sway 旋转动画，只保留 blink 眨眼动画（如果不需要眨眼也可以删掉 blink ） */
+  animation:blink 12s infinite;
+}
+@media(max-width:480px){
+  #nana-pet{
+    right:8px;
+    bottom:-15px;
+  }
+  #nana-pet img{
+    width:140px;
+    max-width:38vw;
+  }
+}
+/* 浮动动画（上下飘）保留 */
+@keyframes float{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-14px)}
+}
+/* 删掉旋转动画 */
+/* @keyframes sway{
+  0%,100%{transform:rotate(0deg)}
+  25%{transform:rotate(4deg)}
+  75%{transform:rotate(-4deg)}
+} */
 
 /* flatpickr 美化（日曆更好看） */
 .flatpickr-calendar{background:rgba(20,20,50,0.95);border:none;box-shadow:0 10px 40px rgba(0,0,0,0.6);}
