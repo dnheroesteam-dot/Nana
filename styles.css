@@ -82,7 +82,7 @@ h1{
 #nana-pet {
     position: fixed;
     right: 20px;           /* 可微調左右 */
-    bottom: -18px;         /* 關鍵！負數讓她沉下去一點（根據圖片調整 -10 ~ -30px 都好看） */
+    bottom: -25px;         /* 關鍵！負數讓她沉下去一點（根據圖片調整 -10 ~ -30px 都好看） */
     z-index: 999;
     pointer-events: none;  /* 不擋滑鼠 */
     animation: float 6s ease-in-out infinite;
@@ -109,3 +109,4 @@ h1{
     25% { transform: rotate(4deg); }
     75% { transform: rotate(-4deg); }
 }
+
