@@ -5,24 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>星野娜娜♪歌单（按字数分类）</title>
     
-    <!-- 連結外部 CSS -->
+    <!-- 外部樣式 -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- 可選：加上你的 favicon -->
+    <!-- 美美的日期選擇器（CDN）-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    
+    <!-- Favicon -->
     <link rel="icon" href="favicon.png" type="image/png">
 </head>
 <body>
     <div class="snow" id="snow"></div>
-	<div id="nana-pet">
-		<img src="Nana.png" alt="星野娜娜桌宠">
-	</div>
+    
+    <!-- 桌宠娜娜 -->
+    <div id="nana-pet">
+        <img src="Nana.png" alt="星野娜娜桌宠">
+    </div>
+
     <div class="container">
         <header>
             <h1>星野娜娜的歌单</h1>
             <p class="subtitle">加载中…</p>
         </header>
-        <div class="search"><input type="text" id="searchInput" placeholder="搜索歌名或歌手…"></div>
+        
+        <div class="search">
+            <input type="text" id="searchInput" placeholder="搜索歌名或歌手…">
+        </div>
+        
         <div id="categories"></div>
+        
         <div class="footer">
             © 2025 星野娜娜 私人歌单<br>
             想听哪首点一下「复制」→直播间直接粘贴发送就行哦～
@@ -48,27 +60,33 @@
                 document.body.innerHTML += `<h2 style="color:#ff6b6b;text-align:center;margin:60px;">載入失敗：${err.message}</h2>`;
             });
 
-        function groupByLength(s) { const g={}; s.forEach(i=>{const l=i.title.length; g[l]=g[l]||[]; g[l].push(i);}); return g; }
+        function groupByLength(s) {
+            const g = {};
+            s.forEach(i => { const l = i.title.length; g[l] = g[l] || []; g[l].push(i); });
+            return g;
+        }
 
         function renderAll() {
             const container = document.getElementById('categories');
             container.innerHTML = '';
             const groups = groupByLength(allSongs);
-            const maxLen = Math.max(...Object.keys(groups).map(Number),1);
+            const maxLen = Math.max(...Object.keys(groups).map(Number), 1);
 
-            for (let len=1; len<=maxLen; len++) {
+            for (let len = 1; len <= maxLen; len++) {
                 if (!groups[len]) continue;
 
-                const cat = document.createElement('div'); cat.className='category';
-                const header = document.createElement('div'); header.className='cat-header';
+                const cat = document.createElement('div'); cat.className = 'category';
+                const header = document.createElement('div'); header.className = 'cat-header';
                 header.innerHTML = `<span>${len}字歌</span><span class="cat-count">(${groups[len].length})</span>`;
 
-                const body = document.createElement('div'); body.className='cat-body';
+                const body = document.createElement('div'); body.className = 'cat-body';
 
                 groups[len].forEach(song => {
-                    const item = document.createElement('div'); item.className='song-item';
+                    const item = document.createElement('div');
+                    item.className = 'song-item';
                     item.dataset.title = song.title;
-                    if (progress[song.title]) item.style.background='rgba(100,255,180,0.15)';
+                    const data = progress[song.title];
+                    if (data?.date) item.style.background = 'rgba(100,255,180,0.15)';
 
                     item.innerHTML = `
                         <div class="song-info">
@@ -78,84 +96,174 @@
                         <button class="copy">复制</button>
                     `;
 
-                    const checkDiv = document.createElement('div');
-                    checkDiv.style.cssText='display:flex;flex-direction:column;align-items:center;min-width:90px;';
-                    const cb = document.createElement('input'); cb.type='checkbox';
-                    cb.style.transform='scale(1.4)'; cb.checked=!!progress[song.title];
-                    const date = document.createElement('small');
-                    date.style.cssText='margin-top:4px;font-size:0.75em;opacity:0.8;';
-                    if (progress[song.title]) date.textContent=progress[song.title].slice(5,10).replace('-','/');
+                    // ─────── 橫排控制區：勾選 + 日期 + 筆記 ───────
+                    const controlBar = document.createElement('div');
+                    controlBar.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:180px;justify-content:flex-end;flex-shrink:0;';
 
-                    cb.addEventListener('change',()=>{
-                        if(cb.checked){
-                            const t=new Date().toISOString().slice(0,10);
-                            progress[song.title]=t;
-                            date.textContent=t.slice(5,10).replace('-','/');
-                            item.style.background='rgba(100,255,180,0.15)';
-                        }else{
-                            delete progress[song.title];
-                            date.textContent=''; item.style.background='';
+                    // 勾選框
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.style.transform = 'scale(1.4)';
+                    checkbox.checked = !!(data?.date);
+
+                    // 日期標籤
+                    const dateLabel = document.createElement('small');
+                    dateLabel.style.cssText = 'font-size:0.82em;opacity:0.9;min-width:50px;text-align:center;cursor:pointer;';
+                    dateLabel.title = '點這裡改日期';
+                    if (data?.date) dateLabel.textContent = data.date.slice(5,10).replace('-','/');
+
+                    // 開啟月曆的函數（共用）
+                    const openCalendar = (e) => {
+                        e.stopPropagation();
+                        if (checkbox.dataset.processing) return;
+                        checkbox.dataset.processing = 'true';
+
+                        const picker = flatpickr(document.createElement('div'), {
+                            defaultDate: data?.date || new Date(),
+                            maxDate: new Date(),
+                            locale: "zh",
+                            disableMobile: true,
+                            onChange: (selectedDates, dateStr) => {
+                                if (!progress[song.title]) progress[song.title] = {};
+                                progress[song.title].date = dateStr;
+                                dateLabel.textContent = dateStr.slice(5,10).replace('-','/');
+                                checkbox.checked = true;
+                                item.style.background = 'rgba(100,255,180,0.15)';
+                                localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                                updateCounter();
+                                delete checkbox.dataset.processing;
+                            },
+                            onClose: () => delete checkbox.dataset.processing
+                        });
+
+                        setTimeout(() => {
+                            picker.open();
+                            setTimeout(() => {
+                                const rect = checkbox.getBoundingClientRect();
+                                const cal = picker.calendarContainer;
+                                cal.style.position = 'absolute';
+                                cal.style.top = `${rect.bottom + window.scrollY + 8}px`;
+                                cal.style.left = `${Math.min(rect.left + window.scrollX - 80, window.innerWidth - 320)}px`;
+                                cal.style.zIndex = '9999';
+                            }, 100);
+                        }, 150);
+                    };
+
+                    // 最終邏輯：只有「空→勾」時跳月曆，「勾→空」直接取消
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked && !data?.date) {
+                            // 從空 → 勾：跳月曆
+                            openCalendar(new Event('click'));
+                        } else if (!checkbox.checked) {
+                            // 從勾 → 空：直接取消
+                            if (progress[song.title]) {
+                                delete progress[song.title].date;
+                                if (!progress[song.title].note || progress[song.title].note.trim() === '') {
+                                    delete progress[song.title];
+                                }
+                            }
+                            dateLabel.textContent = '';
+                            item.style.background = '';
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                            updateCounter();
                         }
-                        localStorage.setItem(STORAGE_KEY,JSON.stringify(progress));
-                        updateCounter();
                     });
 
-                    checkDiv.appendChild(cb); checkDiv.appendChild(date);
-                    item.appendChild(checkDiv);
+                    // 點日期文字也能開月曆
+                    dateLabel.onclick = (e) => {
+                        e.stopPropagation();
+                        checkbox.checked = true;
+                        openCalendar(e);
+                    };
 
-                    item.querySelector('.copy').onclick=()=>{
-                        const txt=song.artist?`${song.title} - ${song.artist}`:song.title;
+                    // 筆記欄
+                    const noteInput = document.createElement('input');
+                    noteInput.type = 'text';
+                    noteInput.placeholder = '筆記…';
+                    noteInput.style.cssText = 'width:90px;padding:4px 8px;font-size:0.78em;background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:6px;opacity:0.7;transition:opacity 0.3s;text-align:center;';
+                    if (data?.note) {
+                        noteInput.value = data.note;
+                        noteInput.style.opacity = '1';
+                    }
+                    noteInput.addEventListener('input', () => {
+                        if (!progress[song.title]) progress[song.title] = {};
+                        progress[song.title].note = noteInput.value;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                        noteInput.style.opacity = noteInput.value ? '1' : '0.7';
+                    });
+
+                    controlBar.appendChild(checkbox);
+                    controlBar.appendChild(dateLabel);
+                    controlBar.appendChild(noteInput);
+                    item.appendChild(controlBar);
+
+                    // 複製按鈕
+                    item.querySelector('.copy').onclick = () => {
+                        const txt = song.artist ? `${song.title} - ${song.artist}` : song.title;
                         navigator.clipboard.writeText(txt);
-                        item.querySelector('.copy').textContent='✓';
-                        setTimeout(()=>{item.querySelector('.copy').textContent='复制';},1500);
+                        item.querySelector('.copy').textContent = '✓';
+                        setTimeout(() => item.querySelector('.copy').textContent = '复制', 1500);
                     };
 
                     body.appendChild(item);
                 });
 
-                header.onclick=()=>{ header.classList.toggle('open'); body.classList.toggle('open'); };
-                cat.appendChild(header); cat.appendChild(body); container.appendChild(cat);
+                header.onclick = () => {
+                    header.classList.toggle('open');
+                    body.classList.toggle('open');
+                };
+                cat.appendChild(header);
+                cat.appendChild(body);
+                container.appendChild(cat);
             }
         }
 
-        function updateCounter(){
-            const total=allSongs.length, done=Object.keys(progress).length;
-            const pct=total===0?0:Math.round(done/total*100);
-            const sub=document.querySelector('.subtitle');
-            if(!sub.dataset.original) sub.dataset.original='共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
-            sub.innerText=sub.dataset.original.replace('共0首',`共${total}首`)+`  |  已點：${done}/${total}（${pct}%）`+(done===total&&total>0?' 全部點完啦！':' 加油～');
+        function updateCounter() {
+            const total = allSongs.length;
+            const done = Object.keys(progress).filter(k => progress[k]?.date).length;
+            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+            const sub = document.querySelector('.subtitle');
+            if (!sub.dataset.original) sub.dataset.original = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
+            sub.innerText = sub.dataset.original.replace('共0首', `共${total}首`) +
+                `  |  已點：${done}/${total}（${pct}%）` +
+                (done === total && total > 0 ? ' 全部點完啦！' : ' 加油～');
         }
 
-        document.getElementById('searchInput').oninput=function(){
-            const kw=this.value.trim().toLowerCase();
-            document.querySelectorAll('.song-item').forEach(it=>{
-                const t=it.dataset.title.toLowerCase();
-                const a=(it.querySelector('.artist')?.innerText||'').toLowerCase();
-                if(t.includes(kw)||a.includes(kw)){
-                    it.classList.add('highlight'); it.style.display='';
-                    it.closest('.cat-body').classList.add('open');
-                    it.closest('.cat-body').previousElementSibling.classList.add('open');
-                }else{
-                    it.classList.remove('highlight');
-                    it.style.display=kw===''?'':'none';
+        // 搜尋
+        document.getElementById('searchInput').oninput = function () {
+            const kw = this.value.trim().toLowerCase();
+            document.querySelectorAll('.song-item').forEach(item => {
+                const t = item.dataset.title.toLowerCase();
+                const a = (item.querySelector('.artist')?.innerText || '').toLowerCase();
+                if (t.includes(kw) || a.includes(kw)) {
+                    item.classList.add('highlight');
+                    item.style.display = '';
+                    item.closest('.cat-body').classList.add('open');
+                    item.closest('.cat-body').previousElementSibling.classList.add('open');
+                } else {
+                    item.classList.remove('highlight');
+                    item.style.display = kw === '' ? '' : 'none';
                 }
             });
         };
 
-        const h1=document.querySelector('h1');
-        let t; h1.onmousedown=e=>{if(e.button===0)t=setTimeout(()=>{if(confirm('清空所有進度？')){localStorage.removeItem(STORAGE_KEY);location.reload();}},3000);};
-        h1.onmouseup=h1.onmouseleave=()=>{clearTimeout(t);};
+        // 長按標題清空
+        const h1 = document.querySelector('h1');
+        let timer;
+        h1.onmousedown = e => { if (e.button === 0) timer = setTimeout(() => { if (confirm('要清空所有點歌進度嗎？（不可恢復）')) { localStorage.removeItem(STORAGE_KEY); location.reload(); } }, 3000); };
+        h1.onmouseup = h1.onmouseleave = () => clearTimeout(timer);
 
-        const snow=document.getElementById('snow');
-        setInterval(()=>{
-            const s=document.createElement('div');
-            s.innerText=['❅','❆','✻'][Math.random()*3|0];
-            s.style.cssText=`position:absolute;left:${Math.random()*100}vw;top:-20px;font-size:${Math.random()*16+10}px;opacity:${Math.random()*0.6+0.4};animation:fall ${Math.random()*10+10}s linear forwards;`;
+        // 飄雪
+        const snow = document.getElementById('snow');
+        setInterval(() => {
+            const s = document.createElement('div');
+            s.innerText = ['❅', '❆', '✻'][Math.random() * 3 | 0];
+            s.style.cssText = `position:absolute;left:${Math.random() * 100}vw;top:-20px;font-size:${Math.random() * 16 + 10}px;opacity:${Math.random() * 0.6 + 0.4};animation:fall ${Math.random() * 10 + 10}s linear forwards;`;
             snow.appendChild(s);
-            setTimeout(()=>s.remove(),20000);
-        },350);
-        const style=document.createElement('style');
-        style.innerHTML=`@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
+            setTimeout(() => s.remove(), 20000);
+        }, 350);
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
         document.head.appendChild(style);
     </script>
 </body>
