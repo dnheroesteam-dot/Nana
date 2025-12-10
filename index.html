@@ -3,17 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>星野娜娜♪歌单（按字数分类）</title>
+    <title>星野娜娜♪歌单（云端同步版）</title>
     
-    <!-- 外部樣式 -->
+    <!-- 外部样式 -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- 美美的日期選擇器（CDN）-->
+    <!-- 日期选择器 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    
-    <!-- Favicon -->
-    <link rel="icon" href="favicon.png" type="image/png">
+
+    <!-- Firebase v10 (module 版) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyAit4vQ_Ipnb6GszQiljMSwCNxdYIgEMYo",
+          authDomain: "nanasong-3f39a.firebaseapp.com",
+          projectId: "nanasong-3f39a",
+          storageBucket: "nanasong-3f39a.firebasestorage.app",
+          messagingSenderId: "892672210670",
+          appId: "1:892672210670:web:b0bd76cc8e2f7e1052a5ff",
+          measurementId: "G-E7Z50XM521"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window._fire = { db, doc, getDoc, setDoc };
+    </script>
+
+    <!-- icon -->
+    <link rel="icon" href="favicon.png">
 </head>
 <body>
     <div class="snow" id="snow"></div>
@@ -43,10 +64,10 @@
 
     <script>
         const STORAGE_KEY = 'nanasing_progress_2025';
-        let progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        let progress = {};
         let allSongs = [];
 
-        // 工具函数：获取当前日期（YYYY-MM-DD）
+        // 取得今日日期
         function getTodayDate() {
             const d = new Date();
             return [
@@ -56,26 +77,43 @@
             ].join('-');
         }
 
-        fetch('songs.json')
-            .then(r => { if (!r.ok) throw new Error('找不到 songs.json'); return r.json(); })
-            .then(songs => {
-                allSongs = songs;
-                renderAll();
-                const sub = document.querySelector('.subtitle');
-                sub.textContent = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
-                sub.dataset.original = sub.textContent;
-                updateCounter();
-            })
-            .catch(err => {
-                document.body.innerHTML += `<h2 style="color:#ff6b6b;text-align:center;margin:60px;">載入失敗：${err.message}</h2>`;
-            });
+        // 从 Firestore 载入资料（global 版本）
+        async function loadCloudProgress() {
+            try {
+                const ref = _fire.doc(_fire.db, "nana_progress", "global");
+                const snap = await _fire.getDoc(ref);
+                if (snap.exists()) {
+                    progress = snap.data();
+                    // 写入本地缓存 → 加速后续载入
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                } else {
+                    progress = {};
+                }
+            } catch (err) {
+                console.warn("❗云端载入失败，改用本机资料");
+                progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+            }
+        }
 
+        // 同步到云端
+        async function syncToCloud() {
+            const ref = _fire.doc(_fire.db, "nana_progress", "global");
+            await _fire.setDoc(ref, progress, { merge: true });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+        }
+
+        // 分组
         function groupByLength(s) {
             const g = {};
-            s.forEach(i => { const l = i.title.length; g[l] = g[l] || []; g[l].push(i); });
+            s.forEach(i => { 
+                const l = i.title.length; 
+                g[l] = g[l] || []; 
+                g[l].push(i); 
+            });
             return g;
         }
 
+        // 绘制所有歌曲
         function renderAll() {
             const container = document.getElementById('categories');
             container.innerHTML = '';
@@ -85,16 +123,21 @@
             for (let len = 1; len <= maxLen; len++) {
                 if (!groups[len]) continue;
 
-                const cat = document.createElement('div'); cat.className = 'category';
-                const header = document.createElement('div'); header.className = 'cat-header';
+                const cat = document.createElement('div'); 
+                cat.className = 'category';
+
+                const header = document.createElement('div'); 
+                header.className = 'cat-header';
                 header.innerHTML = `<span>${len}字歌</span><span class="cat-count">(${groups[len].length})</span>`;
 
-                const body = document.createElement('div'); body.className = 'cat-body';
+                const body = document.createElement('div'); 
+                body.className = 'cat-body';
 
                 groups[len].forEach(song => {
                     const item = document.createElement('div');
                     item.className = 'song-item';
                     item.dataset.title = song.title;
+
                     const data = progress[song.title];
                     if (data?.date) item.style.background = 'rgba(100,255,180,0.15)';
 
@@ -106,145 +149,76 @@
                         <button class="copy">复制</button>
                     `;
 
-                    // ─────── 橫排控制區：勾選 + 日期 + 筆記 ───────
+                    // 控制区 ────────────────────────
                     const controlBar = document.createElement('div');
                     controlBar.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:180px;justify-content:flex-end;flex-shrink:0;';
 
-                    // 勾選框
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.style.transform = 'scale(1.4)';
                     checkbox.checked = !!(data?.date);
 
-                    // 日期標籤
                     const dateLabel = document.createElement('small');
                     dateLabel.style.cssText = 'font-size:0.82em;opacity:0.9;min-width:50px;text-align:center;cursor:pointer;';
-                    dateLabel.title = '點這裡改日期';
                     if (data?.date) dateLabel.textContent = data.date.slice(5,10).replace('-','/');
 
-                    // 长按相关变量
-                    let longPressTimer = null;
-                    let isLongPress = false; // 标记是否触发了长按
-                    const LONG_PRESS_DURATION = 500; // 长按触发时间（毫秒）
-
-                    // 開啟月曆的函數（共用）
-                    const openCalendar = (e) => {
-                        e.stopPropagation();
-                        if (checkbox.dataset.processing) return;
-                        checkbox.dataset.processing = 'true';
-                        isLongPress = true; // 标记为长按触发
-
-                        const picker = flatpickr(document.createElement('div'), {
-                            defaultDate: data?.date || new Date(),
-                            maxDate: new Date(),
-                            locale: "zh",
-                            disableMobile: true,
-                            onChange: (selectedDates, dateStr) => {
-                                if (!progress[song.title]) progress[song.title] = {};
-                                progress[song.title].date = dateStr;
-                                dateLabel.textContent = dateStr.slice(5,10).replace('-','/');
-                                checkbox.checked = true;
-                                item.style.background = 'rgba(100,255,180,0.15)';
-                                localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-                                updateCounter();
-                                delete checkbox.dataset.processing;
-                            },
-                            onClose: () => {
-                                delete checkbox.dataset.processing;
-                                isLongPress = false; // 重置长按标记
-                            }
-                        });
-
-                        setTimeout(() => {
-                            picker.open();
-                            setTimeout(() => {
-                                const rect = checkbox.getBoundingClientRect();
-                                const cal = picker.calendarContainer;
-                                cal.style.position = 'absolute';
-                                cal.style.top = `${rect.bottom + window.scrollY + 8}px`;
-                                cal.style.left = `${Math.min(rect.left + window.scrollX - 80, window.innerWidth - 320)}px`;
-                                cal.style.zIndex = '9999';
-                            }, 100);
-                        }, 150);
-                    };
-
-                    // 点击复选框：仅处理单击逻辑，跳过长按后的点击
-                    checkbox.addEventListener('change', (e) => {
-                        // 如果是长按触发，跳过本次change逻辑
-                        if (isLongPress) return;
-                        
+                    // 点击checkbox
+                    checkbox.addEventListener('change', () => {
                         if (checkbox.checked) {
-                            // 勾选：自动记录当前日期
                             const today = getTodayDate();
                             progress[song.title] = progress[song.title] || {};
                             progress[song.title].date = today;
                             dateLabel.textContent = today.slice(5,10).replace('-','/');
                             item.style.background = 'rgba(100,255,180,0.15)';
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-                            updateCounter();
                         } else {
-                            // 取消勾选：清空日期
                             if (progress[song.title]) {
                                 delete progress[song.title].date;
-                                if (!progress[song.title].note || progress[song.title].note.trim() === '') {
+                                if (!progress[song.title].note) {
                                     delete progress[song.title];
                                 }
                             }
                             dateLabel.textContent = '';
                             item.style.background = '';
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-                            updateCounter();
                         }
+                        syncToCloud();
+                        updateCounter();
                     });
 
-                    // 长按复选框：弹出日历选择日期
-                    checkbox.addEventListener('mousedown', (e) => {
-                        // 只监听左键
-                        if (e.button !== 0) return;
-                        // 重置长按标记
-                        isLongPress = false;
-                        // 启动长按计时器
-                        longPressTimer = setTimeout(() => {
-                            isLongPress = true; // 标记为长按
-                            // 如果未勾选，先强制勾选（但不触发change的单击逻辑）
-                            if (!checkbox.checked) {
-                                checkbox.checked = true;
-                            }
-                            openCalendar(e);
-                        }, LONG_PRESS_DURATION);
-                    });
-
-                    // 取消长按（鼠标松开/离开）
-                    checkbox.addEventListener('mouseup', () => {
-                        clearTimeout(longPressTimer);
-                    });
-                    checkbox.addEventListener('mouseleave', () => {
-                        clearTimeout(longPressTimer);
-                    });
-                    // 移除click事件的干扰，只保留mousedown/mouseup处理长按
-                    
-                    // 點日期文字也能開月曆
+                    // 点日期可改日期
                     dateLabel.onclick = (e) => {
                         e.stopPropagation();
-                        isLongPress = true;
-                        checkbox.checked = true;
-                        openCalendar(e);
+                        flatpickr(document.createElement('div'), {
+                            defaultDate: data?.date || new Date(),
+                            maxDate: new Date(),
+                            locale: "zh",
+                            disableMobile: true,
+                            onChange: (selectedDates, dateStr) => {
+                                progress[song.title] = progress[song.title] || {};
+                                progress[song.title].date = dateStr;
+                                dateLabel.textContent = dateStr.slice(5,10).replace('-','/');
+                                checkbox.checked = true;
+                                item.style.background = 'rgba(100,255,180,0.15)';
+                                syncToCloud();
+                                updateCounter();
+                            }
+                        }).open();
                     };
 
-                    // 筆記欄
+                    // 笔记栏
                     const noteInput = document.createElement('input');
                     noteInput.type = 'text';
-                    noteInput.placeholder = '筆記…';
+                    noteInput.placeholder = '笔记…';
                     noteInput.style.cssText = 'width:90px;padding:4px 8px;font-size:0.78em;background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:6px;opacity:0.7;transition:opacity 0.3s;text-align:center;';
                     if (data?.note) {
                         noteInput.value = data.note;
                         noteInput.style.opacity = '1';
                     }
+
                     noteInput.addEventListener('input', () => {
-                        if (!progress[song.title]) progress[song.title] = {};
+                        progress[song.title] = progress[song.title] || {};
                         progress[song.title].note = noteInput.value;
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
                         noteInput.style.opacity = noteInput.value ? '1' : '0.7';
+                        syncToCloud();
                     });
 
                     controlBar.appendChild(checkbox);
@@ -252,7 +226,7 @@
                     controlBar.appendChild(noteInput);
                     item.appendChild(controlBar);
 
-                    // 複製按鈕
+                    // 复制按钮
                     item.querySelector('.copy').onclick = () => {
                         const txt = song.artist ? `${song.title} - ${song.artist}` : song.title;
                         navigator.clipboard.writeText(txt);
@@ -267,48 +241,56 @@
                     header.classList.toggle('open');
                     body.classList.toggle('open');
                 };
+
                 cat.appendChild(header);
                 cat.appendChild(body);
                 container.appendChild(cat);
             }
         }
 
+        // 更新统计
         function updateCounter() {
             const total = allSongs.length;
             const done = Object.keys(progress).filter(k => progress[k]?.date).length;
-            const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+            const pct = total === 0 ? 0 : Math.round(done / total * 100);
+
             const sub = document.querySelector('.subtitle');
-            if (!sub.dataset.original) sub.dataset.original = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
-            sub.innerText = sub.dataset.original.replace('共0首', `共${total}首`) +
-                `  |  已點：${done}/${total}（${pct}%）` +
-                (done === total && total > 0 ? ' 全部點完啦！' : ' 加油～');
+            sub.innerText = `共${total}首 · 按字数分类 · 已点：${done}/${total}（${pct}%）` +
+                (done === total && total > 0 ? ' 全部点完啦！' : ' 加油～');
         }
 
-        // 搜尋
+        // 搜索
         document.getElementById('searchInput').oninput = function () {
             const kw = this.value.trim().toLowerCase();
             document.querySelectorAll('.song-item').forEach(item => {
                 const t = item.dataset.title.toLowerCase();
                 const a = (item.querySelector('.artist')?.innerText || '').toLowerCase();
                 if (t.includes(kw) || a.includes(kw)) {
-                    item.classList.add('highlight');
                     item.style.display = '';
                     item.closest('.cat-body').classList.add('open');
                     item.closest('.cat-body').previousElementSibling.classList.add('open');
                 } else {
-                    item.classList.remove('highlight');
                     item.style.display = kw === '' ? '' : 'none';
                 }
             });
         };
 
-        // 長按標題清空
+        // 长按标题：清空所有
         const h1 = document.querySelector('h1');
         let timer;
-        h1.onmousedown = e => { if (e.button === 0) timer = setTimeout(() => { if (confirm('要清空所有點歌進度嗎？（不可恢復）')) { localStorage.removeItem(STORAGE_KEY); location.reload(); } }, 3000); };
+        h1.onmousedown = e => {
+            if (e.button === 0)
+                timer = setTimeout(async () => {
+                    if (confirm('要清空所有进度吗？（不可恢复）')) {
+                        progress = {};
+                        await syncToCloud();
+                        location.reload();
+                    }
+                }, 3000);
+        };
         h1.onmouseup = h1.onmouseleave = () => clearTimeout(timer);
 
-        // 飄雪
+        // 飘雪
         const snow = document.getElementById('snow');
         setInterval(() => {
             const s = document.createElement('div');
@@ -317,9 +299,11 @@
             snow.appendChild(s);
             setTimeout(() => s.remove(), 20000);
         }, 350);
-        const style = document.createElement('style');
-        style.innerHTML = `@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
-        document.head.appendChild(style);
     </script>
+
+    <!-- 飘雪动画 -->
+    <style>
+        @keyframes fall { to { transform:translateY(100vh) rotate(360deg);} }
+    </style>
 </body>
 </html>
