@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>星野娜娜♪歌单（按字数分类）</title>
 <link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <link rel="icon" href="favicon.png" type="image/png">
 
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAit4vQ_Ipnb6GszQiljMSwCNxdYIgEMYo",
@@ -29,12 +27,8 @@
 
   window.firebaseDB = db; // 全局引用
 </script>
-
 </head>
 <body>
-<div class="snow" id="snow"></div>
-<div id="nana-pet"><img src="Nana.png" alt="星野娜娜桌宠"></div>
-
 <div class="container">
   <header>
     <h1>星野娜娜的歌单</h1>
@@ -48,16 +42,14 @@
   <div id="categories"></div>
 
   <div class="footer">
-    © 2025 星野娜娜 私人歌单<br>
-    点复制直接发直播间
+    © 2025 星野娜娜 私人歌单
   </div>
 </div>
 
 <script type="module">
-import { getDoc, setDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-const STORAGE_KEY = 'nanasing_progress_2025';
-let progress = {}; // 本地缓存进度
+let progress = {}; // 已点和笔记
 let allSongs = [];
 
 // 获取今天日期
@@ -71,27 +63,37 @@ fetch('songs.json')
   .then(r => r.json())
   .then(songs => {
     allSongs = songs;
-    // 先从 Firebase 载入进度
-    loadAllProgress().then(() => {
-      renderAll();
-      updateCounter();
-    });
+    renderAll();        // 先渲染页面
+    loadAllProgress();  // 异步标记已点
   });
 
-// 读取 Firebase 所有进度
+// 一次性拉取 Firebase 所有进度
 async function loadAllProgress() {
   const db = window.firebaseDB;
-  for (const song of allSongs) {
-    try {
-      const docRef = doc(db, 'progress', song.title);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        progress[song.title] = docSnap.data();
-      }
-    } catch(e) {
-      console.error("Firebase读取失败:", e);
-    }
+  try {
+    const snapshot = await getDocs(collection(db, 'progress'));
+    snapshot.forEach(docSnap => {
+      progress[docSnap.id] = docSnap.data();
+    });
+  } catch(e) {
+    console.error("Firebase读取失败:", e);
   }
+
+  // 标记已点
+  Object.keys(progress).forEach(title => {
+    const data = progress[title];
+    if(data?.date){
+      const item = document.querySelector(`.song-item[data-title="${title}"]`);
+      if(item){
+        item.style.background = 'rgba(100,255,180,0.15)';
+        const checkbox = item.querySelector('input[type=checkbox]');
+        if(checkbox) checkbox.checked = true;
+        const noteInput = item.querySelector('input[type=text]');
+        if(noteInput && data.note) noteInput.value = data.note;
+      }
+    }
+  });
+  updateCounter();
 }
 
 // 保存单首歌进度到 Firebase
@@ -167,7 +169,7 @@ function renderAll() {
       item.appendChild(controlBar);
 
       // 复制按钮
-      item.querySelector('.copy').onclick=()=>{
+      item.querySelector('.copy').onclick=()=> {
         const txt = song.artist ? `${song.title} - ${song.artist}` : song.title;
         navigator.clipboard.writeText(txt);
         item.querySelector('.copy').textContent='✓';
