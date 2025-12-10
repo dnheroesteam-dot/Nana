@@ -1,206 +1,322 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>星野娜娜♪云同步歌单</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<link rel="icon" href="favicon.png" type="image/png">
-<style>
-/* ----------------- 基础样式 ----------------- */
-body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif'; margin:0; padding:0; background:#111; color:#f0f0f0; }
-.container { max-width:900px; margin:0 auto; padding:20px; }
-h1 { text-align:center; margin-bottom:10px; color:#ffd700; }
-.subtitle { text-align:center; margin-bottom:20px; opacity:0.9; }
-.search input { width:100%; padding:8px; font-size:1em; margin-bottom:20px; border-radius:6px; border:none; }
-.category { margin-bottom:16px; border-radius:8px; overflow:hidden; }
-.cat-header { cursor:pointer; background:linear-gradient(145deg,#222,#111); padding:8px 12px; display:flex; justify-content:space-between; align-items:center; }
-.cat-header.open { background:linear-gradient(145deg,#444,#222); }
-.cat-body { display:none; flex-direction:column; }
-.cat-body.open { display:flex; }
-.song-item { display:flex; justify-content:space-between; align-items:center; padding:6px 12px; border-bottom:1px solid #333; transition:background 0.3s; }
-.song-item.highlight { background:rgba(255,215,0,0.15); }
-.song-info { display:flex; flex-direction:column; }
-.title { font-weight:bold; }
-.artist { font-size:0.85em; opacity:0.8; }
-.copy { cursor:pointer; background:#ffd700; border:none; border-radius:6px; padding:4px 8px; margin-left:10px; }
-input[type=text] { border-radius:6px; border:none; padding:4px 8px; width:90px; font-size:0.78em; opacity:0.7; background:rgba(255,255,255,0.12); color:#fff; text-align:center; transition:opacity 0.3s; }
-/* 桌宠 */
-.floating-doll { position:fixed; z-index:100; width:120px; cursor:grab; user-select:none; transition:transform .3s ease,left .1s ease,top .1s ease; animation:float 3s ease-in-out infinite; }
-.floating-doll.dragging { cursor:grabbing; animation:none; opacity:0.8; }
-@keyframes float {0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-/* 飘雪 */
-.snow { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:50; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星野娜娜♪歌单（按字数分类）</title>
+
+  <!-- 外部样式 -->
+  <link rel="stylesheet" href="styles.css">
+  <!-- 美美的日期选择器（CDN）-->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <!-- Favicon -->
+  <link rel="icon" href="favicon.png" type="image/png">
 </head>
 <body>
-<div class="snow" id="snow"></div>
+  <!-- 飘雪特效 -->
+  <div class="snow" id="snow"></div>
 
-<!-- 桌宠 -->
-<div id="nana-pet" class="floating-doll" style="left:20px;top:50%;"><img src="Nana.png" alt="星野娜娜桌宠"></div>
+  <!-- 桌宠娜娜 -->
+  <div id="nana-pet">
+    <img src="Nana.png" alt="星野娜娜桌宠">
+  </div>
 
-<div class="container">
-<header>
-<h1>星野娜娜的歌单</h1>
-<p class="subtitle">加载中…</p>
-</header>
+  <div class="container">
+    <header>
+      <h1>星野娜娜的歌单</h1>
+      <p class="subtitle">加载中…</p>
+    </header>
 
-<div class="search">
-<input type="text" id="searchInput" placeholder="搜索歌名或歌手…">
-</div>
+    <div class="search">
+      <input type="text" id="searchInput" placeholder="搜索歌名或歌手…">
+    </div>
 
-<div id="categories"></div>
-<div class="footer" style="text-align:center;margin-top:20px;">© 2025 星野娜娜 私人歌单<br>想听哪首点一下「复制」→直播间直接粘贴发送就行哦～</div>
-</div>
+    <div id="categories"></div>
 
-<script>
-const API_URL = "https://script.google.com/macros/s/AKfycbymA7sGZ9j-AqccJC6iMAY7CRHwAIxhanuID3OrTYugTgektoYByq5ZHXpT3jSpldv0/exec";
-let allSongs = [];
-let progress = {}; // 云端进度
+    <div class="footer">
+      © 2025 星野娜娜 私人歌单<br>
+      想听哪首点一下「复制」→直播间直接粘贴发送就行哦～
+    </div>
+  </div>
 
-// ----------------- 工具函数 -----------------
-function getTodayDate(){ const d=new Date(); return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-'); }
+  <script>
+    const STORAGE_KEY = 'nanasing_progress_2025';
+    let progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    let allSongs = [];
 
-// ----------------- 云端操作 -----------------
-async function fetchSongs(){
-  try{
-    const res = await fetch(`${API_URL}?action=getAll`);
-    const data = await res.json();
-    allSongs = data.songs;
-    progress = data.progress || {};
-    renderAll();
-  }catch(e){ console.error("读取失败",e); document.querySelector('.subtitle').textContent='载入失败'; }
-}
+    // 工具函数：获取当前日期（YYYY-MM-DD）
+    function getTodayDate() {
+      const d = new Date();
+      return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0')
+      ].join('-');
+    }
 
-async function saveProgress(title,data){
-  try{
-    await fetch(API_URL,{
-      method:"POST",
-      body:JSON.stringify({action:"updateProgress", title, data}),
-      headers:{'Content-Type':'application/json'}
-    });
-    progress[title]=data;
-  }catch(e){ console.error("保存失败",e); }
-}
-
-// ----------------- 分组与渲染 -----------------
-function groupByLength(s){ const g={}; s.forEach(i=>{ const l=i.title.length; g[l]=g[l]||[]; g[l].push(i); }); return g; }
-
-function renderAll(){
-  const container = document.getElementById('categories'); container.innerHTML='';
-  const groups = groupByLength(allSongs);
-  const maxLen = Math.max(...Object.keys(groups).map(Number),1);
-  for(let len=1;len<=maxLen;len++){
-    if(!groups[len]) continue;
-    const cat=document.createElement('div'); cat.className='category';
-    const header=document.createElement('div'); header.className='cat-header';
-    header.innerHTML=`<span>${len}字歌</span><span class="cat-count">(${groups[len].length})</span>`;
-    const body=document.createElement('div'); body.className='cat-body';
-
-    groups[len].forEach(song=>{
-      const item=document.createElement('div'); item.className='song-item'; item.dataset.title=song.title;
-      const data=progress[song.title];
-      if(data?.date) item.style.background='rgba(100,255,180,0.15)';
-      item.innerHTML=`
-        <div class="song-info">
-          <div class="title">${song.title}</div>
-          ${song.artist?`<div class="artist">${song.artist}</div>`:''}
-        </div>
-        <button class="copy">复制</button>
-      `;
-
-      // 控制条
-      const controlBar=document.createElement('div'); controlBar.style.cssText='display:flex;align-items:center;gap:10px;justify-content:flex-end;';
-      // 勾选框
-      const checkbox=document.createElement('input'); checkbox.type='checkbox'; checkbox.style.transform='scale(1.4)'; checkbox.checked=!!data?.date;
-      // 日期
-      const dateLabel=document.createElement('small'); dateLabel.style.cssText='font-size:0.82em;opacity:0.9;min-width:50px;text-align:center;cursor:pointer;';
-      if(data?.date) dateLabel.textContent=data.date.slice(5,10).replace('-','/');
-      // 长按打开日期
-      let longPressTimer=null, isLongPress=false; const LONG_PRESS_DURATION=500;
-      const openCalendar=(e)=>{
-        e.stopPropagation();
-        if(checkbox.dataset.processing) return;
-        checkbox.dataset.processing='true';
-        isLongPress=true;
-        const picker=flatpickr(document.createElement('div'),{
-          defaultDate:data?.date||new Date(),
-          maxDate:new Date(),
-          disableMobile:true,
-          onChange:(selectedDates,dateStr)=>{
-            saveProgress(song.title,{...data,date:dateStr});
-            dateLabel.textContent=dateStr.slice(5,10).replace('-','/');
-            checkbox.checked=true;
-            item.style.background='rgba(100,255,180,0.15)';
-            delete checkbox.dataset.processing;
-          },
-          onClose:()=>{ delete checkbox.dataset.processing; isLongPress=false; }
-        });
-        setTimeout(()=>picker.open(),150);
-      };
-      // 单击/长按
-      checkbox.addEventListener('change',()=>{ if(isLongPress) return;
-        if(checkbox.checked){ const today=getTodayDate(); saveProgress(song.title,{...data,date:today}); dateLabel.textContent=today.slice(5,10).replace('-','/'); item.style.background='rgba(100,255,180,0.15)'; }
-        else{ saveProgress(song.title,{...data,date:null}); dateLabel.textContent=''; item.style.background=''; }
+    // 加载歌曲列表
+    fetch('songs.json')
+      .then(r => {
+        if (!r.ok) throw new Error('找不到 songs.json');
+        return r.json();
+      })
+      .then(songs => {
+        allSongs = songs;
+        renderAll();
+        const sub = document.querySelector('.subtitle');
+        sub.textContent = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
+        sub.dataset.original = sub.textContent;
+        updateCounter();
+      })
+      .catch(err => {
+        document.body.innerHTML += `<h2 style="color:#ff6b6b;text-align:center;margin:60px;">載入失敗：${err.message}</h2>`;
       });
-      checkbox.addEventListener('mousedown',e=>{ if(e.button!==0) return; isLongPress=false; longPressTimer=setTimeout(()=>{ isLongPress=true; checkbox.checked=true; openCalendar(e); },LONG_PRESS_DURATION); });
-      checkbox.addEventListener('mouseup',()=>clearTimeout(longPressTimer));
-      checkbox.addEventListener('mouseleave',()=>clearTimeout(longPressTimer));
-      dateLabel.onclick=e=>{ e.stopPropagation(); isLongPress=true; checkbox.checked=true; openCalendar(e); };
 
-      // 笔记
-      const noteInput=document.createElement('input'); noteInput.type='text'; noteInput.placeholder='筆記…';
-      if(data?.note){ noteInput.value=data.note; noteInput.style.opacity='1'; }
-      noteInput.addEventListener('input',()=>{ saveProgress(song.title,{...data,note:noteInput.value}); noteInput.style.opacity=noteInput.value?'1':'0.7'; });
+    // 按歌名字数分组
+    function groupByLength(songs) {
+      const g = {};
+      songs.forEach(song => {
+        const l = song.title.length;
+        g[l] = g[l] || [];
+        g[l].push(song);
+      });
+      return g;
+    }
 
-      controlBar.appendChild(checkbox); controlBar.appendChild(dateLabel); controlBar.appendChild(noteInput);
-      item.appendChild(controlBar);
+    // 渲染所有分类
+    function renderAll() {
+      const container = document.getElementById('categories');
+      container.innerHTML = '';
+      const groups = groupByLength(allSongs);
+      const maxLen = Math.max(...Object.keys(groups).map(Number), 1);
 
-      // 复制
-      item.querySelector('.copy').onclick=()=>{ const txt=song.artist?`${song.title} - ${song.artist}`:song.title; navigator.clipboard.writeText(txt); item.querySelector('.copy').textContent='✓'; setTimeout(()=>item.querySelector('.copy').textContent='复制',1500); };
+      for (let len = 1; len <= maxLen; len++) {
+        if (!groups[len]) continue;
 
-      body.appendChild(item);
-    });
+        const cat = document.createElement('div');
+        cat.className = 'category';
 
-    header.onclick=()=>{ header.classList.toggle('open'); body.classList.toggle('open'); };
-    cat.appendChild(header); cat.appendChild(body); container.appendChild(cat);
-  }
-}
+        const header = document.createElement('div');
+        header.className = 'cat-header';
+        header.innerHTML = `<span>${len}字歌</span><span class="cat-count">(${groups[len].length})</span>`;
 
-// ----------------- 搜索 -----------------
-document.getElementById('searchInput').oninput=function(){
-  const kw=this.value.trim().toLowerCase();
-  document.querySelectorAll('.song-item').forEach(item=>{
-    const t=item.dataset.title.toLowerCase();
-    const a=(item.querySelector('.artist')?.innerText||'').toLowerCase();
-    if(t.includes(kw)||a.includes(kw)){ item.classList.add('highlight'); item.style.display=''; item.closest('.cat-body').classList.add('open'); item.closest('.cat-body').previousElementSibling.classList.add('open'); }
-    else{ item.classList.remove('highlight'); item.style.display=kw===''?'':'none'; }
-  });
-};
+        const body = document.createElement('div');
+        body.className = 'cat-body';
 
-// ----------------- 飘雪 -----------------
-const snow=document.getElementById('snow');
-setInterval(()=>{
-  const s=document.createElement('div');
-  s.innerText=['❅','❆','✻'][Math.random()*3|0];
-  s.style.cssText=`position:absolute;left:${Math.random()*100}vw;top:-20px;font-size:${Math.random()*16+10}px;opacity:${Math.random()*0.6+0.4};animation:fall ${Math.random()*10+10}s linear forwards;`;
-  snow.appendChild(s);
-  setTimeout(()=>s.remove(),20000);
-},350);
-const style=document.createElement('style'); style.innerHTML='@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}'; document.head.appendChild(style);
+        groups[len].forEach(song => {
+          const item = document.createElement('div');
+          item.className = 'song-item';
+          item.dataset.title = song.title;
 
-// ----------------- 桌宠拖动 -----------------
-const doll=document.getElementById('nana-pet'); let isDragging=false,currentX=20,currentY=window.innerHeight/2,initialX,initialY;
-doll.style.left=currentX+'px'; doll.style.top=currentY+'px';
-doll.addEventListener('mousedown',startDrag); document.addEventListener('mousemove',drag); document.addEventListener('mouseup',endDrag);
-doll.addEventListener('touchstart',startDrag,{passive:false}); document.addEventListener('touchmove',drag,{passive:false}); document.addEventListener('touchend',endDrag);
-function startDrag(e){ e.preventDefault(); isDragging=true; initialX=e.type==='touchstart'?e.touches[0].clientX-e.offsetLeft:e.clientX-doll.offsetLeft; initialY=e.type==='touchstart'?e.touches[0].clientY-e.offsetTop:e.clientY-doll.offsetTop; doll.classList.add('dragging'); }
-function drag(e){ if(!isDragging) return; e.preventDefault(); const x=e.type==='touchmove'?e.touches[0].clientX:e.clientX; const y=e.type==='touchmove'?e.touches[0].clientY:e.clientY; currentX=x-initialX; currentY=y-initialY; doll.style.left=Math.max(0,Math.min(currentX,window.innerWidth-doll.offsetWidth))+'px'; doll.style.top=Math.max(0,Math.min(currentY,window.innerHeight-doll.offsetHeight))+'px'; }
-function endDrag(){ isDragging=false; doll.classList.remove('dragging'); }
+          const data = progress[song.title];
+          if (data?.date) item.style.background = 'rgba(100,255,180,0.15)';
 
-// ----------------- 启动 -----------------
-fetchSongs();
-</script>
+          item.innerHTML = `
+            <div class="song-info">
+              <div class="title">${song.title}</div>
+              ${song.artist ? `<div class="artist">${song.artist}</div>` : ''}
+            </div>
+            <button class="copy">复制</button>
+          `;
+
+          // ─────── 控制区：勾选 + 日期 + 笔记 ───────
+          const controlBar = document.createElement('div');
+          controlBar.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:180px;justify-content:flex-end;flex-shrink:0;';
+
+          // 勾选框
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.style.transform = 'scale(1.4)';
+          checkbox.checked = !!(data?.date);
+
+          // 日期标签
+          const dateLabel = document.createElement('small');
+          dateLabel.style.cssText = 'font-size:0.82em;opacity:0.9;min-width:50px;text-align:center;cursor:pointer;';
+          dateLabel.title = '點這裡改日期';
+          if (data?.date) dateLabel.textContent = data.date.slice(5,10).replace('-','/');
+
+          // 长按相关
+          let longPressTimer = null;
+          let isLongPress = false;
+          const LONG_PRESS_DURATION = 500;
+
+          const openCalendar = (e) => {
+            e.stopPropagation();
+            if (checkbox.dataset.processing) return;
+            checkbox.dataset.processing = 'true';
+            isLongPress = true;
+
+            const picker = flatpickr(document.createElement('div'), {
+              defaultDate: data?.date || new Date(),
+              maxDate: new Date(),
+              locale: "zh",
+              disableMobile: true,
+              onChange: (selectedDates, dateStr) => {
+                if (!progress[song.title]) progress[song.title] = {};
+                progress[song.title].date = dateStr;
+                dateLabel.textContent = dateStr.slice(5,10).replace('-','/');
+                checkbox.checked = true;
+                item.style.background = 'rgba(100,255,180,0.15)';
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+                updateCounter();
+                delete checkbox.dataset.processing;
+              },
+              onClose: () => {
+                delete checkbox.dataset.processing;
+                isLongPress = false;
+              }
+            });
+
+            setTimeout(() => {
+              picker.open();
+              setTimeout(() => {
+                const rect = checkbox.getBoundingClientRect();
+                const cal = picker.calendarContainer;
+                cal.style.position = 'absolute';
+                cal.style.top = `${rect.bottom + window.scrollY + 8}px`;
+                cal.style.left = `${Math.min(rect.left + window.scrollX - 80, window.innerWidth - 320)}px`;
+                cal.style.zIndex = '9999';
+              }, 100);
+            }, 150);
+          };
+
+          // 点击/长按事件处理
+          checkbox.addEventListener('change', () => {
+            if (isLongPress) return;
+
+            if (checkbox.checked) {
+              const today = getTodayDate();
+              progress[song.title] = progress[song.title] || {};
+              progress[song.title].date = today;
+              dateLabel.textContent = today.slice(5,10).replace('-','/');
+              item.style.background = 'rgba(100,255,180,0.15)';
+            } else {
+              if (progress[song.title]) {
+                delete progress[song.title].date;
+                if (!progress[song.title].note || progress[song.title].note.trim() === '') {
+                  delete progress[song.title];
+                }
+              }
+              dateLabel.textContent = '';
+              item.style.background = '';
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+            updateCounter();
+          });
+
+          checkbox.addEventListener('mousedown', e => {
+            if (e.button !== 0) return;
+            isLongPress = false;
+            longPressTimer = setTimeout(() => {
+              isLongPress = true;
+              if (!checkbox.checked) checkbox.checked = true;
+              openCalendar(e);
+            }, LONG_PRESS_DURATION);
+          });
+          checkbox.addEventListener('mouseup', () => clearTimeout(longPressTimer));
+          checkbox.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+          dateLabel.onclick = (e) => { e.stopPropagation(); isLongPress = true; checkbox.checked = true; openCalendar(e); };
+
+          // 笔记
+          const noteInput = document.createElement('input');
+          noteInput.type = 'text';
+          noteInput.placeholder = '筆記…';
+          noteInput.style.cssText = 'width:90px;padding:4px 8px;font-size:0.78em;background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:6px;opacity:0.7;transition:opacity 0.3s;text-align:center;';
+          if (data?.note) {
+            noteInput.value = data.note;
+            noteInput.style.opacity = '1';
+          }
+          noteInput.addEventListener('input', () => {
+            if (!progress[song.title]) progress[song.title] = {};
+            progress[song.title].note = noteInput.value;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+            noteInput.style.opacity = noteInput.value ? '1' : '0.7';
+          });
+
+          controlBar.appendChild(checkbox);
+          controlBar.appendChild(dateLabel);
+          controlBar.appendChild(noteInput);
+          item.appendChild(controlBar);
+
+          // 复制按钮
+          item.querySelector('.copy').onclick = () => {
+            const txt = song.artist ? `${song.title} - ${song.artist}` : song.title;
+            navigator.clipboard.writeText(txt);
+            item.querySelector('.copy').textContent = '✓';
+            setTimeout(() => item.querySelector('.copy').textContent = '复制', 1500);
+          };
+
+          body.appendChild(item);
+        });
+
+        header.onclick = () => {
+          header.classList.toggle('open');
+          body.classList.toggle('open');
+        };
+
+        cat.appendChild(header);
+        cat.appendChild(body);
+        container.appendChild(cat);
+      }
+    }
+
+    // 更新进度计数
+    function updateCounter() {
+      const total = allSongs.length;
+      const done = Object.keys(progress).filter(k => progress[k]?.date).length;
+      const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+      const sub = document.querySelector('.subtitle');
+      if (!sub.dataset.original) sub.dataset.original = '共0首 · 按歌名字数分类 · 搜歌名/歌手 · 点复制直接发直播间';
+      sub.innerText = sub.dataset.original.replace('共0首', `共${total}首`) +
+                      ` | 已點：${done}/${total}（${pct}%）` +
+                      (done === total && total > 0 ? ' 全部點完啦！' : ' 加油～');
+    }
+
+    // 搜索功能
+    document.getElementById('searchInput').oninput = function() {
+      const kw = this.value.trim().toLowerCase();
+      document.querySelectorAll('.song-item').forEach(item => {
+        const t = item.dataset.title.toLowerCase();
+        const a = (item.querySelector('.artist')?.innerText || '').toLowerCase();
+        if (t.includes(kw) || a.includes(kw)) {
+          item.classList.add('highlight');
+          item.style.display = '';
+          item.closest('.cat-body').classList.add('open');
+          item.closest('.cat-body').previousElementSibling.classList.add('open');
+        } else {
+          item.classList.remove('highlight');
+          item.style.display = kw === '' ? '' : 'none';
+        }
+      });
+    };
+
+    // 长按标题清空所有进度
+    const h1 = document.querySelector('h1');
+    let timer;
+    h1.onmousedown = e => {
+      if (e.button === 0) timer = setTimeout(() => {
+        if (confirm('要清空所有點歌進度嗎？（不可恢復）')) {
+          localStorage.removeItem(STORAGE_KEY);
+          location.reload();
+        }
+      }, 3000);
+    };
+    h1.onmouseup = h1.onmouseleave = () => clearTimeout(timer);
+
+    // 飘雪效果
+    const snow = document.getElementById('snow');
+    setInterval(() => {
+      const s = document.createElement('div');
+      s.innerText = ['❅', '❆', '✻'][Math.random() * 3 | 0];
+      s.style.cssText = `position:absolute;left:${Math.random() * 100}vw;top:-20px;font-size:${Math.random() * 16 + 10}px;opacity:${Math.random() * 0.6 + 0.4};animation:fall ${Math.random() * 10 + 10}s linear forwards;`;
+      snow.appendChild(s);
+      setTimeout(() => s.remove(), 20000);
+    }, 350);
+
+    const style = document.createElement('style');
+    style.innerHTML = `@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
+    document.head.appendChild(style);
+  </script>
 </body>
 </html>
