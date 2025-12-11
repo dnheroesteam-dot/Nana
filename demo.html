@@ -13,7 +13,7 @@
   <style>
     /* 美化下拉选单 */
     .note-select {
-      padding: 4px 8px;
+      padding: 4px 6px;
       font-size: 0.78em;
       background: rgba(255,255,255,0.12);
       color: #fff;
@@ -24,24 +24,15 @@
       cursor: pointer;
       transition: all 0.3s;
     }
-    .note-select option {
-      background: #1a1a2e;
-      color: #fff;
-    }
-    /* 三种状态不同颜色（可选美化） */
-    .note-select.good   { background: rgba(80, 200, 120, 0.4); }
-    .note-select.normal { background: rgba(255, 200, 80, 0.35); }
-    .note-select.bad    { background: rgba(255, 100, 100, 0.35); }
+    .note-select option { background: #1a1a2e; color: #fff; }
+    .note-select.good   { background: rgba(80, 200, 120, 0.45); }
+    .note-select.normal { background: rgba(255, 193, 7, 0.4); }
+    .note-select.bad    { background: rgba(255, 99, 132, 0.4); }
   </style>
 </head>
 <body>
-  <!-- 飘雪特效 -->
   <div class="snow" id="snow"></div>
-
-  <!-- 桌宠娜娜 -->
-  <div id="nana-pet">
-    <img src="Nana.png" alt="星野娜娜桌宠">
-  </div>
+  <div id="nana-pet"><img src="Nana.png" alt="星野娜娜桌宠"></div>
 
   <div class="container">
     <header>
@@ -71,11 +62,13 @@
       return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
     }
 
+    // 统一保存函数，防止重复写
+    function saveProgress() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+    }
+
     fetch('songs.json')
-      .then(r => {
-        if (!r.ok) throw new Error('找不到 songs.json');
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error('找不到 songs.json'); return r.json(); })
       .then(songs => {
         allSongs = songs;
         renderAll();
@@ -90,11 +83,7 @@
 
     function groupByLength(songs) {
       const g = {};
-      songs.forEach(song => {
-        const l = song.title.length;
-        g[l] = g[l] || [];
-        g[l].push(song);
-      });
+      songs.forEach(s => { const l = s.title.length; g[l] = g[l] || []; g[l].push(s); });
       return g;
     }
 
@@ -126,14 +115,14 @@
           if (data?.date) item.style.background = 'rgba(100,255,180,0.15)';
 
           item.innerHTML = `
-            <div class="song-info" style="flex: 1; min-width: 0;"> <!-- 让歌名歌手占满空间 -->
-              <div class="title" style="font-size:1.05em; font-weight:600;">${song.title}</div>
-              ${song.artist ? `<div class="artist" style="opacity:0.9; margin-top:2px;">${song.artist}</div>` : ''}
+            <div class="song-info" style="flex:1; min-width:0; padding-right:12px;">
+              <div class="title" style="font-size:1.05em; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${song.title}</div>
+              ${song.artist ? `<div class="artist" style="opacity:0.88; margin-top:2px; font-size:0.92em;">${song.artist}</div>` : ''}
             </div>
             <button class="copy">复制</button>
           `;
 
-          // ─────── 控制区：勾选 + 日期 + 评价下拉选单 ───────
+          // 控制区
           const controlBar = document.createElement('div');
           controlBar.style.cssText = 'display:flex; align-items:center; gap:12px; flex-shrink:0;';
 
@@ -143,18 +132,17 @@
           checkbox.style.transform = 'scale(1.4)';
           checkbox.checked = !!(data?.date);
 
-          // 日期标签
+          // 日期
           const dateLabel = document.createElement('small');
           dateLabel.style.cssText = 'font-size:0.82em; opacity:0.9; min-width:50px; text-align:center; cursor:pointer;';
           dateLabel.title = '點這裡改日期';
           if (data?.date) dateLabel.textContent = data.date.slice(5,10).replace('-','/');
 
           // 长按打开日历
-          let longPressTimer = null;
-          let isLongPress = false;
+          let longPressTimer, isLongPress = false;
           const LONG_PRESS_DURATION = 500;
 
-          const openCalendar = (e) => {
+          const openCalendar = e => {
             e.stopPropagation();
             if (checkbox.dataset.processing) return;
             checkbox.dataset.processing = 'true';
@@ -166,7 +154,7 @@
               locale: "zh",
               disableMobile: true,
               onChange: (selectedDates, dateStr) => {
-                if (!progress[song.title]) progress[song.title] = {};
+                progress[song.title] = progress[song.title] || {};
                 progress[song.title].date = dateStr;
                 dateLabel.textContent = dateStr.slice(5,10).replace('-','/');
                 checkbox.checked = true;
@@ -174,14 +162,10 @@
                 saveProgress();
                 updateCounter();
               },
-              onClose: () => {
-                delete checkbox.dataset.processing;
-                isLongPress = false;
-              }
+              onClose: () => { delete checkbox.dataset.processing; }
             });
 
-            setTimeout(() => {
-              picker.open();
+            setTimeout(() => { picker.open();
               setTimeout(() => {
                 const rect = checkbox.getBoundingClientRect();
                 const cal = picker.calendarContainer;
@@ -189,8 +173,8 @@
                 cal.style.top = `${rect.bottom + window.scrollY + 8}px`;
                 cal.style.left = `${Math.min(rect.left + window.scrollX - 80, window.innerWidth - 320)}px`;
                 cal.style.zIndex = '9999';
-              }, 100);
-            }, 150);
+              }, 50);
+            }, 100);
           };
 
           checkbox.addEventListener('change', () => {
@@ -215,60 +199,39 @@
 
           checkbox.addEventListener('mousedown', e => {
             if (e.button !== 0) return;
-            isLongPress = false;
-            longPressTimer = setTimeout(() => {
-              isLongPress = true;
-              if (!checkbox.checked) checkbox.checked = true;
-              openCalendar(e);
-            }, LONG_PRESS_DURATION);
+            longPressTimer = setTimeout(() => { isLongPress = true; checkbox.checked = true; openCalendar(e); }, LONG_PRESS_DURATION);
           });
-          checkbox.addEventListener('mouseup', () => clearTimeout(longPressTimer));
-          checkbox.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
-          dateLabel.onclick = (e) => { e.stopPropagation(); isLongPress = true; checkbox.checked = true; openCalendar(e); };
+          ['mouseup','mouseleave'].forEach(ev => checkbox.addEventListener(ev, () => clearTimeout(longPressTimer)));
+          dateLabel.onclick = e => { e.stopPropagation(); checkbox.checked = true; openCalendar(e); };
 
-          // —— 新增：评价下拉选单 ——
+          // 评价下拉选单
           const noteSelect = document.createElement('select');
           noteSelect.className = 'note-select';
-          noteSelect.innerHTML = `
-            <option value="">—</option>
-            <option value="好听">好听</option>
-            <option value="普通">普通</option>
-            <option value="不熟">不熟</option>
-          `;
-          // 恢复保存的评价
+          noteSelect.innerHTML = `<option value="">—</option><option value="好听">好听</option><option value="普通">普通</option><option value="不熟">不熟</option>`;
           if (data?.note) {
             noteSelect.value = data.note;
-            noteSelect.classList.add(
-              data.note === '好听' ? 'good' :
-              data.note === '普通' ? 'normal' : 'bad'
-            );
+            noteSelect.classList.add(data.note === '好听' ? 'good' : data.note === '普通' ? 'normal' : 'bad');
           }
-
           noteSelect.addEventListener('change', () => {
             const val = noteSelect.value;
-            if (!progress[song.title]) progress[song.title] = {};
+            progress[song.title] = progress[song.title] || {};
             if (val) {
               progress[song.title].note = val;
             } else {
               delete progress[song.title].note;
               if (!progress[song.title].date) delete progress[song.title];
             }
-            // 更新颜色
-            noteSelect.classList.remove('good', 'normal', 'bad');
+            noteSelect.classList.remove('good','normal','bad');
             if (val === '好听') noteSelect.classList.add('good');
             if (val === '普通') noteSelect.classList.add('normal');
             if (val === '不熟') noteSelect.classList.add('bad');
-
             saveProgress();
           });
 
-          // 组装控制区
-          controlBar.appendChild(checkbox);
-          controlBar.appendChild(dateLabel);
-          controlBar.appendChild(noteSelect);
+          controlBar.append(checkbox, dateLabel, noteSelect);
           item.appendChild(controlBar);
 
-          // 复制按钮功能
+          // 复制按钮
           item.querySelector('.copy').onclick = () => {
             const txt = song.artist ? `${song.title} - ${song.artist}` : song.title;
             navigator.clipboard.writeText(txt);
@@ -280,19 +243,10 @@
           body.appendChild(item);
         });
 
-        header.onclick = () => {
-          header.classList.toggle('open');
-          body.classList.toggle('open');
-        };
-
-        cat.appendChild(header);
-        cat.appendChild(body);
+        header.onclick = () => { header.classList.toggle('open'); body.classList.toggle('open'); };
+        cat.append(header, body);
         container.appendChild(cat);
       }
-    }
-
-    function saveProgress() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
     }
 
     function updateCounter() {
@@ -304,53 +258,40 @@
       sub.innerText = sub.dataset.original.replace('共0首', `共${total}首`) +
                       ` | 已點：${done}/${total}（${pct}%）` +
                       (done === total && total > 0 ? ' 全部點完啦！' : ' 加油～');
-      sub.innerText = subText;
     }
 
-    // 搜索功能
+    // 搜索
     document.getElementById('searchInput').oninput = function() {
       const kw = this.value.trim().toLowerCase();
       document.querySelectorAll('.song-item').forEach(item => {
         const t = item.dataset.title.toLowerCase();
         const a = (item.querySelector('.artist')?.innerText || '').toLowerCase();
-        if (t.includes(kw) || a.includes(kw)) {
+        if (kw === '' || t.includes(kw) || a.includes(kw)) {
           item.style.display = '';
-          item.classList.add('highlight');
           item.closest('.cat-body').classList.add('open');
           item.closest('.cat-body').previousElementSibling.classList.add('open');
         } else {
-          item.style.display = kw === '' ? '' : 'none';
-          item.classList.remove('highlight');
+          item.style.display = 'none';
         }
       });
     };
 
-    // 长按标题清空进度
+    // 长按标题清空
     const h1 = document.querySelector('h1');
     let timer;
-    h1.onmousedown = e => {
-      if (e.button === 0) timer = setTimeout(() => {
-        if (confirm('要清空所有點歌進度嗎？（不可恢復）')) {
-          localStorage.removeItem(STORAGE_KEY);
-          location.reload();
-        }
-      }, 3000);
-    };
+    h1.onmousedown = e => { if (e.button === 0) timer = setTimeout(() => confirm('要清空所有點歌進度嗎？（不可恢復）') && (localStorage.removeItem(STORAGE_KEY), location.reload()), 3000); };
     h1.onmouseup = h1.onmouseleave = () => clearTimeout(timer);
 
-    // 飘雪特效（保持原样）
+    // 飘雪
     const snow = document.getElementById('snow');
     setInterval(() => {
       const s = document.createElement('div');
-      s.innerText = ['❅', '❆', '✻'][Math.random() * 3 | 0];
-      s.style.cssText = `position:absolute;left:${Math.random() * 100}vw;top:-20px;font-size:${Math.random() * 16 + 10}px;opacity:${Math.random() * 0.6 + 0.4};animation:fall ${Math.random() * 10 + 10}s linear forwards;`;
+      s.innerText = ['❅', '❆', '✻'][Math.random()*3|0];
+      s.style.cssText = `position:absolute;left:${Math.random()*100}vw;top:-20px;font-size:${Math.random()*16+10}px;opacity:${Math.random()*0.6+0.4};animation:fall ${Math.random()*10+10}s linear forwards;`;
       snow.appendChild(s);
       setTimeout(() => s.remove(), 20000);
     }, 350);
-
-    const style = document.createElement('style');
-    style.innerHTML = `@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`;
-    document.head.appendChild(style);
+    document.head.appendChild(Object.assign(document.createElement('style'), {innerHTML: `@keyframes fall{to{transform:translateY(100vh) rotate(360deg)}}`}));
   </script>
 </body>
 </html>
